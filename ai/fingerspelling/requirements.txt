@@ -1,0 +1,10 @@
+numpy
+scikit-learn
+joblib
+mediapipe
+opencv-python
+torch
+torchvision
+tensorboard
+matplotlib
+Pillow

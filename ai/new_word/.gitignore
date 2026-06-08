@@ -1,0 +1,22 @@
+# 수집 데이터 (용량 큼)
+word_data/
+
+# 학습된 모델 (학습 후 로컬 생성)
+models/
+
+# TensorBoard 로그
+runs/
+
+# Python 캐시
+__pycache__/
+*.pyc
+*.pyo
+
+# 가상환경
+.venv/
+venv/
+env/
+
+# 시스템
+.DS_Store
+Thumbs.db
