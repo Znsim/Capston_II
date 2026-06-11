@@ -1,0 +1,283 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #f5f5f5;
+}
+
+.admin-page {
+  width: 100%;
+  height: 100vh;
+  background: #f5f5f5;
+}
+
+.chat-layout {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+}
+
+.chat-sidebar {
+  width: 360px;
+  background: #ffffff;
+  border-right: 1px solid #e5e5e5;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  padding: 24px 20px 16px;
+}
+
+.sidebar-header h2 {
+  margin: 0 0 14px 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #111;
+}
+
+.chat-filter {
+  display: flex;
+  gap: 10px;
+}
+
+.filter-btn {
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #111;
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.filter-btn.active {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.chat-room-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.chat-room-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  cursor: pointer;
+}
+
+.chat-room-item:hover {
+  background: #f7f7f7;
+}
+
+.chat-room-item.selected {
+  background: #f1f1f1;
+}
+
+.chat-room-left {
+  display: flex;
+  align-items: center;
+}
+
+.profile-image,
+.chat-header-profile,
+.empty-profile {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #d9d9d9;
+}
+
+.chat-room-info {
+  display: flex;
+  align-items: center;
+}
+
+.chat-room-name {
+  font-size: 18px;
+  font-weight: 500;
+  color: #111;
+}
+
+.chat-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #f8f8f8;
+}
+
+.chat-content-header {
+  height: 80px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e5e5;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+}
+
+.chat-user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111;
+}
+
+.chat-message-area {
+  flex: 1;
+  background: #eaf4ff;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.message-row {
+  display: flex;
+  margin-bottom: 12px;
+}
+
+.admin-row {
+  justify-content: flex-end;
+}
+
+.user-row {
+  justify-content: flex-start;
+}
+
+.message-bubble {
+  max-width: 60%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: 15px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.admin-bubble {
+  background: #ffe812;
+  color: #000000;
+}
+
+.user-bubble {
+  background: #b6b6b6;
+  color: #111;
+}
+
+.chat-input-area {
+  height: 80px;
+  background: #ffffff;
+  border-top: 1px solid #e5e5e5;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+}
+
+.chat-input-area input {
+  flex: 1;
+  height: 44px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 0 14px;
+  outline: none;
+  font-size: 15px;
+}
+
+.chat-input-area button {
+  min-width: 90px;
+  height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: #111;
+  color: #fff;
+  cursor: pointer;
+  font-size: 15px;
+  padding: 0 16px;
+}
+
+.mic-btn.listening {
+  background: #d93025;
+}
+
+.no-room-selected {
+  flex: 1;
+  background: #f8f8f8;
+}
+
+.disabled-room {
+  background-color: #e0e0e0;
+  color: #888;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+
+
+.staff-page {
+  width: 100%;
+  min-height: 100vh;
+  padding: 40px;
+  background: #f5f5f5;
+}
+
+.staff-title {
+  margin: 0 0 30px 0;
+  font-size: 32px;
+  font-weight: 700;
+  color: #111;
+}
+
+.staff-question-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.staff-question-card {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 24px;
+  border: 1px solid #e5e5e5;
+}
+
+.staff-question-text {
+  font-size: 22px;
+  font-weight: 600;
+  color: #111;
+  margin-bottom: 18px;
+}
+
+.staff-answer-row {
+  display: flex;
+  gap: 12px;
+}
+
+.staff-answer-row input {
+  flex: 1;
+  height: 48px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 0 14px;
+  font-size: 16px;
+  outline: none;
+}
+
+.staff-answer-row button {
+  min-width: 100px;
+  height: 48px;
+  border: none;
+  border-radius: 10px;
+  background: #111;
+  color: #fff;
+  cursor: pointer;
+  font-size: 15px;
+}
