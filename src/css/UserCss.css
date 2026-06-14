@@ -1,0 +1,132 @@
+.root {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #000;
+}
+
+.cameraLayer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(-1);
+}
+
+.video {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* transform: scaleX(-1); */
+}
+
+.overlayCanvas {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* transform: scaleX(-1); */
+  left: 0;
+  top: 0;
+  z-index: 2;
+}
+
+.kioskPanel {
+  position: absolute;
+  left: 50%;
+  bottom: 40px;
+  transform: translateX(-50%);
+  width: 520px;
+  z-index: 5;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+
+.recognitionBox {
+  background: rgba(0, 0, 0, 0.65);
+  border-radius: 20px;
+  padding: 24px;
+  backdrop-filter: blur(8px);
+}
+
+.recognitionTitle {
+  font-size: 18px;
+  opacity: 0.8;
+  margin-bottom: 8px;
+}
+
+.recognitionValue {
+  font-size: 30px;
+  font-weight: bold;
+  margin-bottom: 18px;
+}
+
+.dwellBar {
+  width: 100%;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 20px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.dwellFill {
+  height: 100%;
+  background: white;
+  transition: width 0.15s linear;
+}
+
+.textRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 22px;
+  margin: 12px 0;
+}
+
+.textRow span {
+  opacity: 0.75;
+}
+
+.textRow strong {
+  font-size: 28px;
+}
+
+.buttonRow {
+  display: flex;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.buttonRow button {
+  flex: 1;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 0;
+  font-size: 17px;
+  font-weight: bold;
+  cursor: pointer;
+  background: white;
+  color: black;
+}
+
+.answerBox {
+  margin-top: 18px;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 20px;
+  padding: 22px;
+  text-align: center;
+  backdrop-filter: blur(8px);
+}
+
+.answerTitle {
+  font-size: 18px;
+  opacity: 0.75;
+  margin-bottom: 10px;
+}
+
+.answerText {
+  font-size: 26px;
+  font-weight: bold;
+}
