@@ -1,0 +1,11 @@
+# AIHub 추출 데이터 (용량 큼)
+word_data/
+word_data_test/
+
+# 학습된 모델
+models/
+
+# Python 캐시
+__pycache__/
+*.pyc
+*.pyo

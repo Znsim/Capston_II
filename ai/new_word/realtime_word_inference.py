@@ -26,6 +26,8 @@ import numpy as np
 import joblib
 import torch
 import mediapipe as mp
+mp_holistic = mp.solutions.holistic
+mp_drawing  = mp.solutions.drawing_utils
 from PIL import ImageFont, ImageDraw, Image
 
 BASE_DIR  = Path(__file__).resolve().parent
@@ -45,8 +47,6 @@ font_sm = ImageFont.truetype(FONT_PATH, 20)
 font_md = ImageFont.truetype(FONT_PATH, 30)
 font_lg = ImageFont.truetype(FONT_PATH, 44)
 
-mp_holistic = mp.solutions.holistic
-mp_drawing  = mp.solutions.drawing_utils
 
 # ── 헬퍼 함수 ─────────────────────────────────────────────────
 
@@ -141,6 +141,10 @@ def infer(model, le, mean, std, frames: np.ndarray):
         probs = torch.softmax(model(x), dim=1)[0]
         idx   = probs.argmax().item()
         conf  = probs[idx].item()
+    top3_idx  = probs.topk(3).indices.tolist()
+    top3_conf = probs.topk(3).values.tolist()
+    top3 = [(le.inverse_transform([i])[0], c) for i, c in zip(top3_idx, top3_conf)]
+    print(f"  TOP3: " + "  /  ".join(f"{w}({c*100:.1f}%)" for w, c in top3))
     return le.inverse_transform([idx])[0], conf
 
 
