@@ -26,14 +26,15 @@ import mediapipe as mp
 from PIL import ImageFont, ImageDraw, Image
 from composer.word_builder import WordBuilder
 
-MODEL_DIR = BASE_DIR / "models"
+PROJECT_DIR = BASE_DIR.parents[1]
+MODEL_DIR = PROJECT_DIR / "app" / "ai" / "models"
 
 # ── 모델 로드 ─────────────────────────────────────────────────
 
 _missing = [p for p in [MODEL_DIR / "gesture_model.pkl", MODEL_DIR / "label_encoder.pkl"] if not p.exists()]
 if _missing:
     raise FileNotFoundError(
-        "다음 파일이 없습니다. 먼저 'python train_classifier.py' 실행:\n"
+        "운영 모델 파일이 없습니다. 새 컴퓨터 인수인계 파일에서 복원하세요:\n"
         + "\n".join(f"  {p}" for p in _missing)
     )
 
