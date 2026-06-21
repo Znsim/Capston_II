@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>키오스크 장치 점검</title>
+  <style>
+    body { margin: 0; padding: 32px; font-family: sans-serif; background: #101827; color: white; }
+    main { max-width: 900px; margin: auto; }
+    section { margin: 18px 0; padding: 20px; border-radius: 12px; background: #1f2937; }
+    button { margin: 6px; padding: 12px 18px; font-size: 17px; }
+    video { width: 100%; max-height: 420px; background: black; }
+    .ok { color: #6ee7b7; } .error { color: #fca5a5; }
+    meter { width: 100%; height: 28px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>카메라·마이크·스피커 점검</h1>
+  <p id="secure"></p>
+  <section>
+    <h2>카메라</h2>
+    <button id="camera">카메라 시작</button><button id="stop">장치 정지</button>
+    <p id="cameraStatus">대기 중</p><video id="video" autoplay playsinline muted></video>
+  </section>
+  <section>
+    <h2>마이크</h2>
+    <button id="microphone">마이크 시작</button>
+    <p id="microphoneStatus">대기 중</p><meter id="level" min="0" max="1" value="0"></meter>
+  </section>
+  <section>
+    <h2>스피커</h2>
+    <button id="speaker">한국어 시험 음성 재생</button><p id="speakerStatus">대기 중</p>
+  </section>
+</main>
+<script>
+  let streams = [];
+  const status = (id, message, ok) => {
+    const element = document.getElementById(id);
+    element.textContent = message;
+    element.className = ok ? "ok" : "error";
+  };
+  status("secure", window.isSecureContext ? "보안 연결: 정상" : "보안 연결이 아닙니다. HTTPS가 필요합니다.", window.isSecureContext);
+
+  document.getElementById("camera").onclick = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      streams.push(stream); document.getElementById("video").srcObject = stream;
+      status("cameraStatus", "카메라 영상 수신 정상", true);
+    } catch (error) { status("cameraStatus", `카메라 실패: ${error.name}`, false); }
+  };
+  document.getElementById("microphone").onclick = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+      streams.push(stream);
+      const context = new AudioContext(); const analyser = context.createAnalyser();
+      context.createMediaStreamSource(stream).connect(analyser);
+      const values = new Uint8Array(analyser.fftSize);
+      const draw = () => { analyser.getByteTimeDomainData(values); let sum = 0;
+        for (const value of values) sum += Math.abs(value - 128) / 128;
+        document.getElementById("level").value = Math.min(1, sum / values.length * 5);
+        if (stream.active) requestAnimationFrame(draw); };
+      draw(); status("microphoneStatus", "말할 때 막대가 움직이면 정상", true);
+    } catch (error) { status("microphoneStatus", `마이크 실패: ${error.name}`, false); }
+  };
+  document.getElementById("speaker").onclick = () => {
+    if (!("speechSynthesis" in window)) return status("speakerStatus", "음성 합성을 지원하지 않습니다.", false);
+    const utterance = new SpeechSynthesisUtterance("키오스크 스피커 시험 음성입니다."); utterance.lang = "ko-KR";
+    utterance.onend = () => status("speakerStatus", "재생 완료. 실제 소리를 들었는지 확인하세요.", true);
+    utterance.onerror = () => status("speakerStatus", "음성 재생 실패", false);
+    speechSynthesis.cancel(); speechSynthesis.speak(utterance);
+  };
+  document.getElementById("stop").onclick = () => { streams.forEach((stream) => stream.getTracks().forEach((track) => track.stop())); streams = []; };
+</script>
+</body>
+</html>

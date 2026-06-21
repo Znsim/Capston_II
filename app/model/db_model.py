@@ -8,6 +8,12 @@ class CommunicationStatus(str, enum.Enum):
     WAITING = "WAITING"
     COMPLETED = "COMPLETED"
 
+
+class ConversationStatus(str, enum.Enum):
+    WAITING = "WAITING"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
+
 class DeviceInfo(Base):
     __tablename__ = "device_info"
 
@@ -17,6 +23,7 @@ class DeviceInfo(Base):
 
     # 역참조 추가: 해당 디바이스에서 발생한 로그들
     logs = relationship("CommunicationLog", back_populates="device")
+    conversations = relationship("Conversation", back_populates="device")
 
 
 class AILabelMap(Base):
@@ -93,3 +100,37 @@ class TrainingDataLog(Base):
     raw_json_data = Column(JSON, nullable=False)
 
     communication = relationship("CommunicationLog", back_populates="training_data")
+
+
+class Conversation(Base):
+    """사용자가 전송한 완성 문장 한 건과 역무원 답변을 저장합니다."""
+
+    __tablename__ = "conversation"
+
+    conversation_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    device_id = Column(
+        String(50),
+        ForeignKey("device_info.device_id"),
+        nullable=False,
+        index=True,
+    )
+    question_text = Column(Text, nullable=False)
+    staff_reply = Column(Text, nullable=True)
+    status = Column(
+        Enum(ConversationStatus, native_enum=False),
+        default=ConversationStatus.WAITING,
+        nullable=False,
+        index=True,
+    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    device = relationship("DeviceInfo", back_populates="conversations")
+
+    __table_args__ = (
+        Index("ix_conversation_device_status", "device_id", "status"),
+    )

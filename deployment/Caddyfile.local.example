@@ -1,0 +1,21 @@
+https://kiosk.local {
+    tls internal
+    encode zstd gzip
+
+    handle /api/* {
+        reverse_proxy 127.0.0.1:8000
+    }
+
+    handle {
+        root * {$KIOSK_ROOT}/build
+        try_files {path} /index.html
+        file_server
+    }
+
+    header {
+        -Server
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        Permissions-Policy "camera=(self), microphone=(self), geolocation=()"
+    }
+}

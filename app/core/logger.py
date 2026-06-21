@@ -39,12 +39,15 @@ class SensitiveFilter(logging.Filter):
     """로그에서 민감 정보 마스킹"""
 
     COMPILED_PATTERNS = [
-        re.compile(r"(password\s*=\s*)(\S+)", re.IGNORECASE),
-        re.compile(r"(token\s*=\s*)(\S+)", re.IGNORECASE),
-        re.compile(r"(api_key\s*=\s*)(\S+)", re.IGNORECASE),
-        re.compile(r"(secret\s*=\s*)(\S+)", re.IGNORECASE),
+        re.compile(r"((?:password|token|api_key|secret|session)\s*[=:]\s*)([^\s,}]+)", re.IGNORECASE),
+        re.compile(r'((?:password|token|api_key|secret|session)\"?\s*:\s*\")([^\"]+)', re.IGNORECASE),
         re.compile(r"(bearer\s+)(\S+)", re.IGNORECASE),
+        re.compile(r"((?:cookie|set-cookie|authorization)\s*:\s*)(\S+)", re.IGNORECASE),
     ]
+    SENSITIVE_KEYS = {
+        "password", "token", "api_key", "secret", "session",
+        "authorization", "cookie", "set-cookie", "staff_session",
+    }
 
     def filter(self, record: logging.LogRecord) -> bool:
 
@@ -67,7 +70,10 @@ class SensitiveFilter(logging.Filter):
     def _mask_args(self, args):
 
         if isinstance(args, dict):
-            return {k: self._mask_value(v) for k, v in args.items()}
+            return {
+                k: "***" if str(k).lower() in self.SENSITIVE_KEYS else self._mask_value(v)
+                for k, v in args.items()
+            }
 
         if isinstance(args, (list, tuple)):
             return type(args)(self._mask_value(a) for a in args)
@@ -294,7 +300,7 @@ def setup_logger(
     _logger_initialized = True
 
     root_logger.info(
-        "✅ Logger initialized | Level=%s | RequestID=%s | Directory=%s",
+        "Logger initialized | Level=%s | RequestID=%s | Directory=%s",
         log_level,
         enable_request_id,
         LOG_DIR

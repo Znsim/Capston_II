@@ -5,12 +5,25 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 
 from app.ai.inference import load_model
 from app.api.router import api_router
 from app.core.config import settings
-from app.core.database import check_db_health, close_db  # 🔥 init_db 제거
+from app.core.database import (
+    check_db_health,
+    close_db,
+    seed_db,
+    validate_ai_label_mapping,
+    _is_sqlite,
+)
+from app.core.migrate import upgrade_database
 from app.core.logger import get_logger, set_request_id, setup_logger
+from app.core.security import (
+    RateLimitMiddleware,
+    RequestBodyLimitMiddleware,
+    SecurityHeadersMiddleware,
+)
 
 setup_logger(enable_request_id=True)
 logger = get_logger(__name__)
@@ -22,7 +35,11 @@ async def lifespan(app: FastAPI):
 
     try:
 
-        if check_db_health():
+        if _is_sqlite:
+            upgrade_database()
+            seed_db()
+            logger.info("SQLite DB 마이그레이션 완료 (kiosk.db)")
+        elif check_db_health():
             logger.info("DB 연결 성공")
         else:
             logger.warning("DB 연결 실패")
@@ -32,11 +49,16 @@ async def lifespan(app: FastAPI):
         # =========================
         try:
             model = load_model()
+            validate_ai_label_mapping(model.label_encoder.classes_)
             app.state.model = model
             logger.info("AI 모델 로드 완료")
-        except Exception as e:
+        except Exception as exc:
             app.state.model = None
-            logger.error("AI 모델 로드 실패: %s", str(e), exc_info=True)
+            logger.error(
+                "ai_model_load_failed | exception_type=%s",
+                type(exc).__name__,
+                exc_info=(type(exc), exc, exc.__traceback__),
+            )
 
         logger.info("애플리케이션 시작 완료")
         yield
@@ -61,9 +83,17 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=not allow_all_origins,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Request-ID"],
 )
+app.add_middleware(RequestBodyLimitMiddleware, max_bytes=settings.MAX_REQUEST_BODY_BYTES)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(
+    SecurityHeadersMiddleware,
+    production=settings.ENVIRONMENT == "production",
+)
+if settings.ENVIRONMENT == "production":
+    app.add_middleware(HTTPSRedirectMiddleware)
 
 _VALID_RID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
@@ -107,7 +137,11 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error("전역 예외 발생: %s", str(exc), exc_info=True)
+    logger.error(
+        "unhandled_server_error | exception_type=%s",
+        type(exc).__name__,
+        exc_info=(type(exc), exc, exc.__traceback__),
+    )
     return JSONResponse(
         status_code=500,
         content={

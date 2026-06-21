@@ -1,0 +1,2 @@
+date,tester,device_id,browser,condition,hand,input_sentence,camera_permission,recognition_result,admin_sentence_match,reply_target_match,speech_result,request_id,pass,notes
+YYYY-MM-DD,tester01,SEOUL_01,Chrome,normal,mixed,화장실이 어디예요,allowed,,,,,,,no,

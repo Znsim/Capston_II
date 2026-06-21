@@ -1,61 +1,39 @@
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.ai.inference import predict_sign
-from app.model.db_model import (
-    AILabelMap,
-    CommunicationLog,
-    CommunicationStatus,
-    TrainingDataLog,
-)
+from app.model.db_model import Conversation, ConversationStatus, DeviceInfo
 
 
-def _resolve_word(label_id: int, db: Session) -> str | None:
-    row = db.query(AILabelMap).filter(AILabelMap.label_id == label_id).first()
-    return row.word_name if row else None
+def run_inference(model, keypoints) -> dict:
+    """추론만 수행하며 좌표나 결과는 DB에 저장하지 않습니다."""
+    return predict_sign(model, keypoints)
 
 
-def run_inference_and_save(
-    model, keypoints, device_id: str, db: Session
-) -> tuple[CommunicationLog, float] | None:
-    result = predict_sign(model, keypoints)
-
-    # none / 저신뢰도 → 정상 흐름. 로그 남기지 않고 재시도 신호(None) 반환
-    if not result["recognized"]:
+def create_conversation(
+    db: Session, device_id: str, question_text: str
+) -> Conversation | None:
+    if db.get(DeviceInfo, device_id) is None:
         return None
 
-    label_id = result["label_id"]
-    word = _resolve_word(label_id, db)
-    if not word:
-        # 인식은 됐는데 매핑이 없다 = 진짜 설정 오류
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="label_not_mapped",
-        )
-
-    new_log = CommunicationLog(
+    conversation = Conversation(
         device_id=device_id,
-        label_id=label_id,
-        recognized_word=word,
-        status=CommunicationStatus.WAITING,
+        question_text=question_text,
+        status=ConversationStatus.WAITING,
     )
-    db.add(new_log)
-    db.flush()
-
-    db.add(TrainingDataLog(log_id=new_log.log_id, raw_json_data=keypoints))
-
+    db.add(conversation)
     db.commit()
-    db.refresh(new_log)
-    return new_log, result["confidence"]
+    db.refresh(conversation)
+    return conversation
 
 
-def get_latest_log_for_device(
-    db: Session, device_id: str
-) -> CommunicationLog | None:
-    """특정 디바이스의 가장 최근 대화 로그 1건 조회 (폴링용)."""
+def get_conversation(
+    db: Session, conversation_id: int, device_id: str
+) -> Conversation | None:
     return (
-        db.query(CommunicationLog)
-        .filter(CommunicationLog.device_id == device_id)
-        .order_by(CommunicationLog.created_at.desc())
+        db.query(Conversation)
+        .filter(
+            Conversation.conversation_id == conversation_id,
+            Conversation.device_id == device_id,
+        )
         .first()
     )

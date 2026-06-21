@@ -3,133 +3,128 @@ from typing import Any, List, Literal, Optional
 import re
 
 from pydantic import BaseModel, Field, field_validator
+import math
 
 DEVICE_ID_PATTERN = re.compile(r"^[A-Z]+_\d+$")
+ConversationStatusLiteral = Literal["WAITING", "COMPLETED", "CANCELLED"]
 
 
-# =========================
-# Common Response Schemas
-# =========================
-
-class SuccessResponse(BaseModel):
-    status: Literal["success"] = Field(default="success", description="요청 처리 상태")
+def _validate_device_id(value: str) -> str:
+    if not DEVICE_ID_PATTERN.fullmatch(value):
+        raise ValueError("invalid_device_id_format")
+    return value
 
 
 class ErrorResponse(BaseModel):
-    status: Literal["error"] = Field(default="error", description="요청 처리 상태")
-    message: str = Field(..., description="오류 코드 또는 메시지")
-    details: Optional[Any] = Field(default=None, description="오류 상세 정보")
+    status: Literal["error"] = "error"
+    message: str
+    details: Optional[Any] = None
 
-
-# =========================
-# Kiosk API
-# =========================
 
 class SignRequest(BaseModel):
-    """키오스크 수어 추론 요청 스키마"""
-    device_id: str = Field(
-        ...,
-        examples=["SEOUL_01"],
-        description="키오스크 기기 ID",
-    )
-    keypoints: List[float] = Field(
-        ...,
-        description="수어 인식용 keypoints (63개 피처)",
-    )
+    device_id: str = Field(..., examples=["SEOUL_01"])
+    keypoints: List[float] = Field(..., description="21개 손 랜드마크의 63차원 좌표")
 
     @field_validator("device_id")
     @classmethod
-    def validate_device_id(cls, v: str) -> str:
-        if not DEVICE_ID_PATTERN.fullmatch(v):
-            raise ValueError("invalid_device_id_format")
-        return v
+    def validate_device_id(cls, value: str) -> str:
+        return _validate_device_id(value)
 
     @field_validator("keypoints")
     @classmethod
-    def validate_keypoints(cls, v: List[float]) -> List[float]:
-        if not v:
-            raise ValueError("keypoints_required")
-
-        if len(v) != 63:
+    def validate_keypoints(cls, value: List[float]) -> List[float]:
+        if len(value) != 63:
             raise ValueError("invalid_feature_length")
-
-        return v
-
-
-class InferenceResponse(BaseModel):
-    """수어 추론 응답 스키마"""
-    log_id: int = Field(..., examples=[1], description="생성된 대화 로그 ID (미인식 시 0)")
-    recognized_word: str = Field(..., examples=["ㅏ"], description="AI가 인식한 자모 (미인식 시 'none')")
-    confidence: float = Field(..., examples=[0.95], description="추론 신뢰도 (0.0 ~ 1.0)")
-
-
-class PollAnswerResponse(BaseModel):
-    """역무원 답변 폴링 응답 스키마"""
-    status: Literal["WAITING", "COMPLETED"] = Field(
-        ..., examples=["WAITING"], description="현재 대화 상태"
-    )
-    staff_reply: Optional[str] = Field(default=None, description="역무원 답변 내용 (WAITING 시 null)")
-
-
-# =========================
-# Staff API
-# =========================
-
-class StaffReply(BaseModel):
-    """역무원 답변 등록 요청 스키마"""
-    log_id: int = Field(..., examples=[1], description="답변할 대화 로그 ID")
-    reply: str = Field(
-        ...,
-        examples=["화장실은 오른쪽 20m 앞에 있습니다."],
-        description="역무원 답변 내용",
-    )
-
-    @field_validator("reply")
-    @classmethod
-    def validate_reply(cls, v: str) -> str:
-        value = v.strip()
-        if not value:
-            raise ValueError("reply_required")
-        if len(value) > 500:
-            raise ValueError("reply_too_long")
+        if not all(math.isfinite(point) for point in value):
+            raise ValueError("keypoints_must_be_finite")
         return value
 
 
+class InferenceResponse(BaseModel):
+    recognized_word: str = Field(..., examples=["ㅏ"])
+    confidence: float = Field(..., ge=0.0, le=1.0, examples=[0.95])
+
+
+class ConversationCreateRequest(BaseModel):
+    device_id: str = Field(..., examples=["SEOUL_01"])
+    question_text: str = Field(..., examples=["화장실이 어디예요?"])
+
+    @field_validator("device_id")
+    @classmethod
+    def validate_device_id(cls, value: str) -> str:
+        return _validate_device_id(value)
+
+    @field_validator("question_text")
+    @classmethod
+    def validate_question_text(cls, value: str) -> str:
+        text = value.strip()
+        if not text:
+            raise ValueError("question_text_required")
+        if len(text) > 500:
+            raise ValueError("question_text_too_long")
+        return text
+
+
+class ConversationCreateResponse(BaseModel):
+    conversation_id: int
+    status: ConversationStatusLiteral
+
+
+class ConversationResponse(BaseModel):
+    conversation_id: int
+    status: ConversationStatusLiteral
+    staff_reply: Optional[str] = None
+
+
+class StaffReply(BaseModel):
+    conversation_id: int
+    reply: str
+
+    @field_validator("reply")
+    @classmethod
+    def validate_reply(cls, value: str) -> str:
+        reply = value.strip()
+        if not reply:
+            raise ValueError("reply_required")
+        if len(reply) > 500:
+            raise ValueError("reply_too_long")
+        return reply
+
+
 class WaitingItem(BaseModel):
-    """답변 대기 목록의 개별 항목"""
-    log_id: int = Field(..., examples=[1], description="대화 로그 ID")
-    device_id: str = Field(..., examples=["SEOUL_01"], description="키오스크 기기 ID")
-    label_id: int = Field(..., examples=[3], description="AI 라벨 ID")
-    recognized_word: str = Field(..., examples=["출구"], description="인식된 단어")
-    communication_status: Literal["WAITING", "COMPLETED"] = Field(
-        ..., examples=["WAITING"], description="현재 대화 상태"
-    )
-    created_at: datetime = Field(..., description="로그 생성 시간")
+    conversation_id: int
+    device_id: str
+    station_name: str
+    location: Optional[str] = None
+    question_text: str
+    status: ConversationStatusLiteral
+    created_at: datetime
 
 
 class WaitingListResponse(BaseModel):
-    """답변 대기 목록 조회 응답 스키마"""
-    status: Literal["success"] = Field(default="success", examples=["success"], description="요청 처리 상태")
-    total: int = Field(..., examples=[25], description="전체 대기 건수")
-    page: int = Field(..., examples=[1], description="현재 페이지 번호")
-    limit: int = Field(..., examples=[20], description="페이지당 항목 수")
-    total_pages: int = Field(..., examples=[2], description="전체 페이지 수")
-    items: List[WaitingItem] = Field(..., description="대기 중인 대화 목록")
+    status: Literal["success"] = "success"
+    total: int
+    page: int
+    limit: int
+    total_pages: int
+    items: List[WaitingItem]
 
 
 class StaffReplyResponse(BaseModel):
-    """역무원 답변 등록 응답 스키마"""
-    message: str = Field(..., examples=["답변이 등록되었습니다."], description="결과 메시지")
-    log_id: int = Field(..., examples=[1], description="답변이 등록된 대화 로그 ID")
+    message: str
+    conversation_id: int
 
 
-# =========================
-# Health API
-# =========================
+class AdminLoginRequest(BaseModel):
+    password: str = Field(..., min_length=1, max_length=200)
+
+
+class AuthStatusResponse(BaseModel):
+    authenticated: bool
+
 
 class HealthStatus(BaseModel):
-    """시스템 상태 점검 응답 스키마"""
-    database: str = Field(..., examples=["connected"], description="데이터베이스 연결 상태")
-    ai_model: str = Field(..., examples=["loaded"], description="AI 모델 로드 상태")
-    all_systems_ready: bool = Field(..., examples=[True], description="전체 시스템 준비 여부")
-    timestamp: str = Field(..., examples=["2026-03-27T19:30:00+09:00"], description="상태 점검 시각")
+    database: str
+    ai_model: str
+    all_systems_ready: bool
+    timestamp: str

@@ -1,0 +1,409 @@
+{
+  "model_version": "fingerspelling-mlp-2026.06.19-v2",
+  "model_sha256": "75a8bf05864297676048f50963a0a5aaff036cabe4ab31c9cf56fe2a732b6067",
+  "threshold": 0.8,
+  "independent_evaluator": "no",
+  "sessions": [
+    "20260619_152928_tester01_normal",
+    "20260619_155321_tester01_new_none",
+    "20260619_154659_tester01_recheck"
+  ],
+  "generated_at": "2026-06-20T17:09:42.439983+09:00",
+  "conditions": {
+    "normal": {
+      "samples": 660,
+      "evaluation_accuracy": 0.9666666666666667,
+      "recognition_coverage": 0.8954545454545455,
+      "recognized_accuracy": 0.9813874788494078,
+      "per_label": {
+        "none": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.8647096999999999,
+          "handedness": {
+            "Right": 19,
+            "Left": 1
+          }
+        },
+        "ㄱ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.9776539,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㄴ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.9661403999999999,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㄷ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.8593619,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㄹ": {
+          "samples": 20,
+          "evaluation_accuracy": 0.95,
+          "average_confidence": 0.9909358000000001,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㅁ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.987435,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㅂ": {
+          "samples": 20,
+          "evaluation_accuracy": 0.95,
+          "average_confidence": 0.8102656500000001,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㅅ": {
+          "samples": 20,
+          "evaluation_accuracy": 0.95,
+          "average_confidence": 0.90379135,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㅇ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.9260615,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㅈ": {
+          "samples": 40,
+          "evaluation_accuracy": 0.9,
+          "average_confidence": 0.9706633499999999,
+          "handedness": {
+            "Right": 40
+          }
+        },
+        "ㅊ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.9947331499999998,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㅋ": {
+          "samples": 20,
+          "evaluation_accuracy": 0.9,
+          "average_confidence": 0.96858375,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㅌ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.9980613500000002,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㅍ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.9959598,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㅎ": {
+          "samples": 20,
+          "evaluation_accuracy": 0.9,
+          "average_confidence": 0.9029674,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㅏ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.9262964499999999,
+          "handedness": {
+            "Left": 20
+          }
+        },
+        "ㅐ": {
+          "samples": 20,
+          "evaluation_accuracy": 0.95,
+          "average_confidence": 0.9764041000000001,
+          "handedness": {
+            "Left": 20
+          }
+        },
+        "ㅑ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.9812776999999997,
+          "handedness": {
+            "Left": 20
+          }
+        },
+        "ㅒ": {
+          "samples": 20,
+          "evaluation_accuracy": 0.95,
+          "average_confidence": 0.9490777999999999,
+          "handedness": {
+            "Left": 20
+          }
+        },
+        "ㅓ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.9504360999999999,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㅔ": {
+          "samples": 20,
+          "evaluation_accuracy": 0.85,
+          "average_confidence": 0.9267357,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㅕ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.9565329000000002,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㅖ": {
+          "samples": 20,
+          "evaluation_accuracy": 0.9,
+          "average_confidence": 0.9157177500000001,
+          "handedness": {
+            "Left": 20
+          }
+        },
+        "ㅗ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.99389065,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㅚ": {
+          "samples": 20,
+          "evaluation_accuracy": 0.95,
+          "average_confidence": 0.99412935,
+          "handedness": {
+            "Left": 20
+          }
+        },
+        "ㅛ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.9134873499999998,
+          "handedness": {
+            "Left": 16,
+            "Right": 4
+          }
+        },
+        "ㅜ": {
+          "samples": 20,
+          "evaluation_accuracy": 0.9,
+          "average_confidence": 0.97967005,
+          "handedness": {
+            "Left": 2,
+            "Right": 18
+          }
+        },
+        "ㅟ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.9986231999999999,
+          "handedness": {
+            "Right": 20
+          }
+        },
+        "ㅠ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.9996025,
+          "handedness": {
+            "Left": 20
+          }
+        },
+        "ㅡ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.9979291,
+          "handedness": {
+            "Left": 20
+          }
+        },
+        "ㅢ": {
+          "samples": 20,
+          "evaluation_accuracy": 0.95,
+          "average_confidence": 0.9085684999999998,
+          "handedness": {
+            "Left": 20
+          }
+        },
+        "ㅣ": {
+          "samples": 20,
+          "evaluation_accuracy": 1.0,
+          "average_confidence": 0.9984535999999998,
+          "handedness": {
+            "Left": 20
+          }
+        }
+      },
+      "confusions": [
+        {
+          "target": "ㅂ",
+          "prediction": "none",
+          "count": 8
+        },
+        {
+          "target": "ㄷ",
+          "prediction": "none",
+          "count": 5
+        },
+        {
+          "target": "ㅎ",
+          "prediction": "none",
+          "count": 4
+        },
+        {
+          "target": "ㅔ",
+          "prediction": "none",
+          "count": 4
+        },
+        {
+          "target": "ㅖ",
+          "prediction": "none",
+          "count": 4
+        },
+        {
+          "target": "ㅢ",
+          "prediction": "none",
+          "count": 4
+        },
+        {
+          "target": "ㅅ",
+          "prediction": "none",
+          "count": 3
+        },
+        {
+          "target": "ㅛ",
+          "prediction": "none",
+          "count": 3
+        },
+        {
+          "target": "ㅇ",
+          "prediction": "none",
+          "count": 2
+        },
+        {
+          "target": "ㅈ",
+          "prediction": "none",
+          "count": 2
+        },
+        {
+          "target": "ㅈ",
+          "prediction": "ㅊ",
+          "count": 2
+        },
+        {
+          "target": "ㅋ",
+          "prediction": "none",
+          "count": 2
+        },
+        {
+          "target": "ㅏ",
+          "prediction": "none",
+          "count": 2
+        },
+        {
+          "target": "ㅓ",
+          "prediction": "none",
+          "count": 2
+        },
+        {
+          "target": "ㅕ",
+          "prediction": "none",
+          "count": 2
+        },
+        {
+          "target": "ㅜ",
+          "prediction": "ㅛ",
+          "count": 2
+        },
+        {
+          "target": "ㄴ",
+          "prediction": "none",
+          "count": 1
+        },
+        {
+          "target": "ㄹ",
+          "prediction": "ㄷ",
+          "count": 1
+        },
+        {
+          "target": "ㅅ",
+          "prediction": "ㅂ",
+          "count": 1
+        },
+        {
+          "target": "ㅋ",
+          "prediction": "ㅊ",
+          "count": 1
+        },
+        {
+          "target": "ㅎ",
+          "prediction": "ㅍ",
+          "count": 1
+        },
+        {
+          "target": "ㅐ",
+          "prediction": "none",
+          "count": 1
+        },
+        {
+          "target": "ㅒ",
+          "prediction": "ㅛ",
+          "count": 1
+        },
+        {
+          "target": "ㅖ",
+          "prediction": "ㅓ",
+          "count": 1
+        },
+        {
+          "target": "ㅚ",
+          "prediction": "ㅛ",
+          "count": 1
+        }
+      ]
+    }
+  },
+  "verdict": "PENDING - 정확도 기준, 독립 평가자 확인, normal/dim/near/far 조건 중 하나 이상이 미충족입니다."
+}

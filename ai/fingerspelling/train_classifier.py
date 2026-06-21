@@ -1,91 +1,152 @@
-"""한글 자모 분류 모델 학습 스크립트
+"""지문자 MLP 모델을 시간 순서 holdout으로 학습하고 평가한다.
 
-dataset/<자모>/landmarks_npy/*.npy 를 읽어 MLPClassifier를 학습하고
-models/gesture_model.pkl 과 models/label_encoder.pkl 을 저장합니다.
+각 라벨/수집 묶음에서 파일 번호가 앞선 80%는 학습, 마지막 20%는
+평가에 사용한다. 기존 운영 모델은 덮어쓰지 않고 models/candidate에
+후보 모델과 평가 결과를 저장한다.
 
 실행:
-  python fingerspelling/train_classifier.py
+  python ai/fingerspelling/train_classifier.py
 """
 
-import os
+from __future__ import annotations
+
+import csv
+import json
+import math
+from collections import defaultdict
 from pathlib import Path
 
-import numpy as np
 import joblib
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
+import numpy as np
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.neural_network import MLPClassifier
-from sklearn.metrics import classification_report
+from sklearn.preprocessing import LabelEncoder
 
-BASE_DIR  = Path(__file__).resolve().parent
-TEAM_DIR  = BASE_DIR / "dataset"
-MY_DIR    = TEAM_DIR / "dataset"   # 개인 수집 데이터 (dataset/dataset/)
-MODEL_DIR = BASE_DIR / "models"
-MODEL_DIR.mkdir(exist_ok=True)
 
-CONSONANTS = ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ', 'none']
-VOWELS     = ['ㅏ', 'ㅐ', 'ㅑ', 'ㅒ', 'ㅓ', 'ㅔ', 'ㅕ', 'ㅖ', 'ㅗ', 'ㅚ', 'ㅛ', 'ㅜ', 'ㅟ', 'ㅠ', 'ㅡ', 'ㅢ', 'ㅣ']
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "dataset"
+OUTPUT_DIR = BASE_DIR / "models" / "candidate"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# ── 데이터 로드 ───────────────────────────────────────────────
+CONSONANTS = [
+    "ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ", "none"
+]
+VOWELS = [
+    "ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅚ", "ㅛ", "ㅜ", "ㅟ", "ㅠ", "ㅡ", "ㅢ", "ㅣ"
+]
+LABELS = CONSONANTS + VOWELS
+TEST_RATIO = 0.2
 
-X, y = [], []
 
-def load_from(data_dir: Path, cls: str) -> int:
-    npy_dir = data_dir / cls / "landmarks_npy"
-    if not npy_dir.exists():
-        return 0
-    files = [f for f in os.listdir(npy_dir) if f.endswith(".npy")]
-    for f in files:
-        landmarks = np.load(npy_dir / f)   # (21, 3)
-        X.append(landmarks.flatten())       # (63,)
-        y.append(cls)
-    return len(files)
+def _sequence_key(path: Path) -> tuple[str, int, str]:
+    """파일명의 마지막 숫자를 촬영 순서로 사용한다."""
+    prefix, separator, suffix = path.stem.rpartition("_")
+    if separator and suffix.isdigit():
+        return prefix, int(suffix), path.name
+    return path.stem, 0, path.name
 
-print("=== 자음 로드 ===")
-for cls in CONSONANTS:
-    cnt = load_from(TEAM_DIR, cls)
-    print(f"  {cls}: {cnt}개")
 
-print("\n=== 모음 로드 ===")
-for cls in VOWELS:
-    cnt_team = load_from(TEAM_DIR, cls)
-    cnt_mine = load_from(MY_DIR, cls)
-    print(f"  {cls}: {cnt_team + cnt_mine}개  (팀원:{cnt_team} + 개인:{cnt_mine})")
+def split_label_files(label: str) -> tuple[list[Path], list[Path]]:
+    """한 라벨의 각 수집 묶음에서 앞 80%/마지막 20%를 분리한다."""
+    source = DATA_DIR / label / "landmarks_npy"
+    groups: dict[str, list[Path]] = defaultdict(list)
 
-X = np.array(X)
-y = np.array(y)
-print(f"\n총 샘플: {len(X)}개  |  클래스: {len(set(y))}개")
+    for path in source.glob("*.npy"):
+        group, _, _ = _sequence_key(path)
+        groups[group].append(path)
 
-# ── 인코딩 & 분할 ─────────────────────────────────────────────
+    train_files: list[Path] = []
+    test_files: list[Path] = []
+    for paths in groups.values():
+        ordered = sorted(paths, key=_sequence_key)
+        test_count = max(1, math.ceil(len(ordered) * TEST_RATIO))
+        if test_count >= len(ordered):
+            raise ValueError(f"not_enough_samples: label={label}, count={len(ordered)}")
+        train_files.extend(ordered[:-test_count])
+        test_files.extend(ordered[-test_count:])
 
-le = LabelEncoder()
-y_enc = le.fit_transform(y)
+    return train_files, test_files
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y_enc, test_size=0.2, random_state=42, stratify=y_enc
-)
-print(f"학습: {len(X_train)}개 / 테스트: {len(X_test)}개")
 
-# ── 학습 ──────────────────────────────────────────────────────
+def load_samples(paths: list[Path], label: str) -> tuple[list[np.ndarray], list[str]]:
+    features: list[np.ndarray] = []
+    labels: list[str] = []
+    for path in paths:
+        landmarks = np.load(path, allow_pickle=False)
+        if landmarks.shape != (21, 3):
+            raise ValueError(f"invalid_shape: path={path}, shape={landmarks.shape}")
+        features.append(landmarks.astype(np.float32, copy=False).reshape(63))
+        labels.append(label)
+    return features, labels
 
-print("\n학습 중...")
-model = MLPClassifier(
-    hidden_layer_sizes=(256, 128, 64),
-    activation='relu',
-    max_iter=500,
-    random_state=42,
-    verbose=False,
-)
-model.fit(X_train, y_train)
 
-# ── 평가 ──────────────────────────────────────────────────────
+def save_split_manifest(rows: list[dict[str, object]]) -> None:
+    with (OUTPUT_DIR / "split_summary.csv").open("w", newline="", encoding="utf-8-sig") as file:
+        writer = csv.DictWriter(file, fieldnames=["label", "train_count", "test_count"])
+        writer.writeheader()
+        writer.writerows(rows)
 
-y_pred = model.predict(X_test)
-print("\n=== 평가 결과 ===")
-print(classification_report(y_test, y_pred, target_names=le.classes_))
 
-# ── 저장 ──────────────────────────────────────────────────────
+def main() -> None:
+    x_train: list[np.ndarray] = []
+    y_train: list[str] = []
+    x_test: list[np.ndarray] = []
+    y_test: list[str] = []
+    split_rows: list[dict[str, object]] = []
 
-joblib.dump(model, MODEL_DIR / "gesture_model.pkl")
-joblib.dump(le,    MODEL_DIR / "label_encoder.pkl")
-print(f"모델 저장 완료: {MODEL_DIR}/gesture_model.pkl")
+    for label in LABELS:
+        train_files, test_files = split_label_files(label)
+        label_x_train, label_y_train = load_samples(train_files, label)
+        label_x_test, label_y_test = load_samples(test_files, label)
+        x_train.extend(label_x_train)
+        y_train.extend(label_y_train)
+        x_test.extend(label_x_test)
+        y_test.extend(label_y_test)
+        split_rows.append({
+            "label": label,
+            "train_count": len(train_files),
+            "test_count": len(test_files),
+        })
+
+    save_split_manifest(split_rows)
+    print(f"학습 샘플: {len(x_train):,} / 평가 샘플: {len(x_test):,}")
+
+    encoder = LabelEncoder()
+    encoder.fit(LABELS)
+    y_train_encoded = encoder.transform(y_train)
+    y_test_encoded = encoder.transform(y_test)
+
+    model = MLPClassifier(
+        hidden_layer_sizes=(256, 128, 64),
+        activation="relu",
+        max_iter=500,
+        random_state=42,
+        verbose=False,
+    )
+    model.fit(np.asarray(x_train), y_train_encoded)
+
+    predictions = model.predict(np.asarray(x_test))
+    class_ids = np.arange(len(encoder.classes_))
+    report = classification_report(
+        y_test_encoded,
+        predictions,
+        labels=class_ids,
+        target_names=encoder.classes_,
+        output_dict=True,
+        zero_division=0,
+    )
+    matrix = confusion_matrix(y_test_encoded, predictions, labels=class_ids)
+    accuracy = accuracy_score(y_test_encoded, predictions)
+
+    joblib.dump(model, OUTPUT_DIR / "gesture_model.pkl")
+    joblib.dump(encoder, OUTPUT_DIR / "label_encoder.pkl")
+    with (OUTPUT_DIR / "metrics.json").open("w", encoding="utf-8") as file:
+        json.dump(report, file, ensure_ascii=False, indent=2)
+    np.savetxt(OUTPUT_DIR / "confusion_matrix.csv", matrix, fmt="%d", delimiter=",")
+
+    print(f"평가 정확도: {accuracy:.4%}")
+    print(f"후보 모델 및 평가 결과 저장: {OUTPUT_DIR}")
+
+
+if __name__ == "__main__":
+    main()

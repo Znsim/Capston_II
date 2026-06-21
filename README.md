@@ -1,241 +1,94 @@
-# 캡스톤디자인 II — 한국 수어 인식 키오스크
+# 한국 수어 지문자 키오스크
 
-청각장애인이 수어(지문자 + 단어)로 질문을 입력하면 역무원이 텍스트로 답변하는 양방향 커뮤니케이션 키오스크 시스템입니다.
+웹캠에서 MediaPipe Hands 랜드마크를 추출하고 지문자 MLP 모델로 한글 자모를 인식해 문장을 만든 뒤, 역무원에게 질문하고 답변을 받는 키오스크입니다.
 
----
+현재 운영 범위는 **정적 지문자 32클래스(`none` 포함)**입니다. 과거 BiLSTM 단어 인식 실험은 운영 코드와 분리해 `research/word_bilstm/`에 보존합니다.
 
-## 목차
+## 구성
 
-1. [시스템 개요](#시스템-개요)
-2. [디렉토리 구조](#디렉토리-구조)
-3. [기술 스택](#기술-스택)
-4. [모듈별 설명](#모듈별-설명)
-5. [설치 및 실행](#설치-및-실행)
-6. [API 명세](#api-명세)
-7. [개발 현황](#개발-현황)
-8. [주의사항](#주의사항)
-
----
-
-## 시스템 개요
-
-```
-[키오스크 웹캠]
-      │
-      ▼ MediaPipe 손 랜드마크 추출 (프론트)
-      │
-      ├─► 지문자 모드: MLPClassifier → 자모 → KoreanComposer → 한글 단어
-      └─► 수어단어 모드: BiLSTM → 단어(교통 도메인 26개)
-      │
-      ▼ POST /api/inference (백엔드)
-      │
-      ├─► DB 저장 (Communication_Log, Training_Data_Log)
-      │
-      ├─► [키오스크 화면] 완성 문장 표시 + 역무원 답변 폴링
-      └─► [역무원 화면] 대기 질문 목록 확인 + 답변 입력
-```
-
----
-
-## 디렉토리 구조
-
-```
+```text
 cap2_git/
-├── ai/
-│   ├── fingerspelling/          # 지문자(한글 자모) 인식
-│   │   ├── collect_data.py      # 웹캠으로 자모 데이터 수집
-│   │   ├── train_classifier.py  # sklearn MLP 모델 학습 (권장)
-│   │   ├── train.py             # PyTorch MLP 학습 (대안)
-│   │   ├── realtime_inference.py # 실시간 추론 + 한글 자동 조합
-│   │   ├── inference.py         # PyTorch 추론
-│   │   ├── ai/
-│   │   │   ├── model.py         # PyTorch MLP 클래스
-│   │   │   ├── preprocess.py    # 랜드마크 정규화·증강
-│   │   │   └── dataset.py       # PyTorch Dataset
-│   │   ├── composer/
-│   │   │   ├── korean_composer.py  # 두벌식 오토마타 (자모→음절)
-│   │   │   └── word_builder.py     # Dwell 타이머 (입력 확정 로직)
-│   │   ├── dataset/             # 수집 데이터 (.gitignore)
-│   │   └── models/              # 학습 완료 모델 (.gitignore)
-│   │
-│   └── new_word/                # 수어 단어 인식 (교통 도메인 26개)
-│       ├── collect_word_data.py # 웹캠으로 단어 시퀀스 수집
-│       ├── realtime_word_inference.py # 실시간 추론
-│       ├── ai/
-│       │   ├── train_bilstm.py  # BiLSTM 모델 학습
-│       │   ├── model_bilstm.py  # BiLSTM 아키텍처
-│       │   ├── dataset_dynamic.py # PyTorch 데이터셋
-│       │   └── preprocess.py    # 정규화·증강
-│       ├── word_data/           # 수집 데이터 (.gitignore)
-│       └── models/              # 학습 모델 (.gitignore)
-│
-├── back/                        # 백엔드 (FastAPI) — 개발 중
-├── front/                       # 프론트엔드 — 개발 중
-├── docs/
-│   ├── AI_개발_가이드.md
-│   ├── 백엔드_개발_가이드.md
-│   └── 프론트엔드_개발_가이드.md
-└── requirements.txt
+├─ app/                     FastAPI API, 인증, DB, AI 추론
+├─ src/                     React 키오스크·역무원 화면
+├─ ai/fingerspelling/       데이터 수집·MLP 학습·실시간 평가
+├─ app/ai/models/           운영 모델(배포 시 별도 제공)
+├─ migrations/              Alembic DB 버전 이력
+├─ research/word_bilstm/    운영 미사용 BiLSTM 연구 코드·데이터
+├─ tests/                   Python 모델 계약·API 통합 테스트
+└─ docs/                    API, 모델 카드, 단계별 테스트·배포 문서
 ```
 
----
+## 요구 환경
 
-## 기술 스택
+- Python 3.10
+- Node.js 및 npm
+- SQLite(기본) 또는 MySQL
+- Chrome 계열 브라우저와 웹캠
 
-### AI (Python)
-| 기술 | 용도 |
-|------|------|
-| MediaPipe 0.10.x | 손/신체 랜드마크 추출 |
-| scikit-learn 1.7.2 | 지문자 분류 (MLPClassifier) |
-| PyTorch | 수어 단어 분류 (BiLSTM) |
-| OpenCV | 웹캠 영상 처리 |
-| Pillow | 한글 폰트 렌더링 |
-| TensorBoard | 학습 모니터링 |
+## 설치
 
-### 백엔드 (구현 예정)
-| 기술 | 용도 |
-|------|------|
-| FastAPI + Uvicorn | REST API 서버 |
-| SQLAlchemy | ORM |
-| MySQL / SQLite | 데이터베이스 |
-
-### 프론트엔드 (구현 예정)
-| 기술 | 용도 |
-|------|------|
-| MediaPipe Hands (JS) | 브라우저 손 랜드마크 추출 |
-| KoreanComposer (JS 포팅) | 자모→한글 음절 조합 |
-| Dwell 타이머 (JS 포팅) | 입력 확정 로직 |
-
----
-
-## 모듈별 설명
-
-### 지문자 인식 (`ai/fingerspelling/`)
-
-한글 자모 32개(ㄱ~ㅎ, ㅏ~ㅣ) + none 클래스를 분류합니다.
-
-- **입력**: MediaPipe Hands 21개 랜드마크 × (x, y, z) = 63차원
-- **모델**: sklearn MLPClassifier `[256 → 128 → 64 → 32]`
-- **임계값**: confidence ≥ 0.75 이상만 인식 처리
-- **저장 파일**: `models/gesture_model.pkl`, `models/label_encoder.pkl`
-
-**한글 조합 흐름**:
-```
-자모 인식 → Dwell 타이머(1초 유지) → KoreanComposer → 음절/단어
-예: ㅅ → ㅏ → ㄱ → ㅗ → ㅏ  ═══► "사과"
+```powershell
+python -m venv venv
+venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+npm.cmd install
+Copy-Item .env.development.example .env
 ```
 
-### 수어 단어 인식 (`ai/new_word/`)
+`ADMIN_PASSWORD`, `SESSION_SECRET`, `REACT_APP_KIOSK_DEVICE_ID`를 환경에 맞게 변경합니다. 운영 모델 두 파일을 다음 위치에 배치합니다.
 
-교통 도메인 수어 단어 26개를 인식합니다 (가다, 감사, 건너다 ... 화장실).
-
-- **입력**: MediaPipe Holistic 시퀀스 `(45프레임, 201차원)`
-  - Pose 25개 × (x, y, visibility) + 양손 각 21개 × (x, y)
-  - 어깨 중점 기준 상대 좌표 (키오스크 위치 무관)
-- **모델**: BiLSTM `(201 → 256 → 128 → 26)`
-- **임계값**: confidence ≥ 0.6
-- **저장 파일**: `models/dynamic_gesture_model.pt`, `norm_stats.pkl`
-
-### 한글 자모 조합 엔진 (`ai/fingerspelling/composer/`)
-
-두벌식 오토마타 기반으로 자모 시퀀스를 완성형 한글로 조합합니다.
-
-- 쌍자음 지원: ㄱ+ㄱ=ㄲ
-- 복합 모음: ㅗ+ㅏ=ㅘ
-- 복합 종성: ㄹ+ㄱ=ㄺ
-- 받침 이동: 한+ㅡ → 하느
-
-> 프론트엔드 구현 시 `korean_composer.py`를 JavaScript로 포팅해야 합니다.
-
----
-
-## 설치 및 실행
-
-### 공통 의존성 설치
-
-```bash
-python -m pip install -r requirements.txt
+```text
+app/ai/models/gesture_model.pkl
+app/ai/models/label_encoder.pkl
 ```
 
-> `pip` 명령이 차단된 환경이라면 `python -m pip` 를 사용하세요.
+## DB 준비 및 실행
 
-### 지문자 데이터 수집
-
-```bash
-python ai/fingerspelling/collect_data.py
+```powershell
+venv\Scripts\python.exe -m app.core.migrate
+venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
-자모당 30개 이상 수집을 권장합니다.
+다른 PowerShell 창에서 프론트를 실행합니다.
 
-### 지문자 모델 학습
-
-```bash
-python ai/fingerspelling/train_classifier.py
+```powershell
+npm.cmd start
 ```
 
-### 지문자 실시간 추론 데모
+- 키오스크: `http://localhost:3000/`
+- 역무원: `http://localhost:3000/admin`
+- API 문서: `http://127.0.0.1:8000/docs`
 
-```bash
-python ai/fingerspelling/realtime_inference.py
+## 테스트
+
+```powershell
+npm.cmd run test:all
+npm.cmd run lint
+npm.cmd run build
 ```
 
-조작: `b` 지우기 | `c` 초기화 | `q` 종료
+실제 웹캠 테스트는 [8단계 테스트 가이드](docs/stage_8_test_guide.md)를 따릅니다.
 
-### 수어 단어 데이터 수집
+## 핵심 동작
 
-```bash
-python ai/new_word/collect_word_data.py
-```
+- 프론트와 Python 데모 모두 `(21, 3)` 원시 랜드마크를 펼친 63차원을 사용합니다.
+- 신뢰도 `0.80` 이상만 입력에 반영합니다.
+- `/api/inference`는 추론만 하며 대화를 저장하지 않습니다.
+- 완성 문장은 `/api/conversations`로 한 번 저장하고 반환된 `conversation_id`로 답변을 폴링합니다.
+- 역무원 API는 HttpOnly 세션 쿠키 인증을 사용합니다.
 
-단어당 100개 이상 수집을 권장합니다.
+## 문서
 
-### 수어 단어 모델 학습
+- [API 명세](docs/api_reference.md)
+- [운영 모델 카드](docs/model_card_fingerspelling.md)
+- [DB 마이그레이션 절차](docs/database_migrations.md)
+- [운영 배포 가이드](docs/stage_10_deployment_guide.md)
+- [새 컴퓨터 작업 인수인계](docs/next_computer_handoff.md)
+- [보안·배포 설정](docs/stage_6_security_deployment.md)
+- [2·3단계 테스트](docs/stage_2_3_test_guide.md)
+- [4단계 키오스크 테스트](docs/stage_4_kiosk_test_guide.md)
 
-```bash
-python ai/new_word/ai/train_bilstm.py
-```
+## 운영 주의사항
 
-### 수어 단어 실시간 추론 데모
-
-```bash
-python ai/new_word/realtime_word_inference.py
-```
-
----
-
-## API 명세
-
-| 엔드포인트 | 메서드 | 역할 |
-|-----------|--------|------|
-| `/api/inference` | POST | 손 랜드마크 수신 → AI 추론 → DB 저장 |
-| `/api/poll/answer` | GET | 역무원 답변 상태 확인 (1초마다 폴링) |
-| `/api/staff/list` | GET | 역무원: 대기 중인 질문 목록 조회 |
-| `/api/staff/reply` | POST | 역무원: 답변 등록 |
-
-자세한 요청/응답 스펙은 `docs/백엔드_개발_가이드.md` 참조.
-
----
-
-## 개발 현황
-
-| 모듈 | 상태 |
-|------|------|
-| 지문자 인식 AI | 완료 |
-| 수어 단어 인식 AI | 완료 |
-| 한글 자모 조합 엔진 (Python) | 완료 |
-| 백엔드 (FastAPI) | 개발 중 |
-| 프론트엔드 (키오스크 화면) | 개발 중 |
-| 프론트엔드 (역무원 화면) | 개발 중 |
-| KoreanComposer JS 포팅 | 예정 |
-| 전체 통합 테스트 | 예정 |
-
----
-
-## 주의사항
-
-- **scikit-learn 버전 고정**: 반드시 `1.7.2` 사용 (버전 불일치 시 모델 로드 실패)
-- **모델 파일 Git 제외**: `dataset/`, `models/`, `word_data/`, `runs/` 는 `.gitignore` 처리 — 팀원 간 직접 전달 필요
-- **모델 서버 시작 시 1회 로드**: 요청마다 로드하면 응답 지연 발생
-- **수어 단어 정규화 필수**: 추론 전 반드시 `norm_stats.pkl`의 mean·std 적용
-- **HTTPS 필수**: 브라우저 웹캠 접근은 HTTPS 또는 localhost 환경에서만 가능
-- **CORS 설정**: 프론트 → 백엔드 API 호출 가능하도록 백엔드에서 CORS 허용 필요
+- `.env`, DB, 로그, 데이터셋, 모델 파일은 Git에 커밋하지 않습니다.
+- 운영은 `.env.production.example`을 기준으로 HTTPS와 정확한 CORS Origin을 설정합니다.
+- 모델 카드의 평가는 현재 학습 참여자 기준 normal 조건만 완료된 상태입니다. dim/near/far와 독립 평가자 결과가 추가되기 전에는 최종 검증 완료로 간주하지 않습니다.

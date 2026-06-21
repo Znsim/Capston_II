@@ -41,8 +41,8 @@ class FingerspellingDataset(Dataset):
             for npy in sorted(npy_dir.glob("*.npy")):
                 samples.append((str(npy), label))
 
-        self.label2idx = {l: i for i, l in enumerate(sorted(label_set))}
-        self.idx2label = {i: l for l, i in self.label2idx.items()}
+        self.label2idx = {label: index for index, label in enumerate(sorted(label_set))}
+        self.idx2label = {index: label for label, index in self.label2idx.items()}
         self.samples = samples
 
     def __len__(self) -> int:

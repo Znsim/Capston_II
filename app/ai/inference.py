@@ -15,11 +15,8 @@ logger = logging.getLogger(__name__)
 # 가이드 모델 스펙: MediaPipe 손 랜드마크 21개 x 3좌표(x, y, z) = 63 features
 EXPECTED_FEATURES = 63
 
-# label_id=0 은 'none'(손 인식 안 됨)을 의미한다.
-NONE_LABEL_ID = 0
-
-# 신뢰도가 이 값 미만이면 인식 실패로 처리한다. (가이드 권장 0.5)
-DEFAULT_CONFIDENCE_THRESHOLD = 0.5
+# 신뢰도가 이 값 미만이면 인식 실패로 처리한다.
+DEFAULT_CONFIDENCE_THRESHOLD = 0.80
 
 
 class InferenceError(RuntimeError):
@@ -32,11 +29,11 @@ class ModelBundle:
 
     Attributes:
         estimator: 학습된 MLPClassifier 등 sklearn estimator.
-        label_encoder: 인덱스 -> 한글 변환기 (LabelEncoder). 없을 수 있음.
+        label_encoder: 인덱스 -> 한글 변환기 (필수 LabelEncoder).
     """
 
     estimator: Any
-    label_encoder: Optional[Any] = None
+    label_encoder: Any
 
 # =========================================================
 # 모델 로딩
@@ -70,24 +67,28 @@ def load_model(
         logger.exception("모델 역직렬화 실패: %s", m_path)
         raise InferenceError("model_load_failed") from exc
 
-    # 라벨 인코더는 선택적으로 로드한다. (없으면 상위에서 DB 매핑 사용 가능)
-    label_encoder = None
+    # 예측 번호를 실제 자모로 변환하는 encoder는 모델의 필수 구성요소다.
     e_path_raw = encoder_path or getattr(settings, "LABEL_ENCODER_PATH", None)
-    if e_path_raw:
-        e_path = Path(e_path_raw)
-        if e_path.exists():
-            try:
-                label_encoder = joblib.load(e_path)
-            except Exception as exc:  # noqa: BLE001
-                logger.exception("라벨 인코더 역직렬화 실패: %s", e_path)
-                raise InferenceError("label_encoder_load_failed") from exc
-        else:
-            logger.warning("라벨 인코더 파일이 없습니다: %s", e_path)
+    if not e_path_raw:
+        raise InferenceError("label_encoder_path_missing")
+    e_path = Path(e_path_raw)
+    if not e_path.exists():
+        raise FileNotFoundError(f"라벨 인코더 파일을 찾을 수 없습니다: {e_path}")
+    try:
+        label_encoder = joblib.load(e_path)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("라벨 인코더 역직렬화 실패: %s", e_path)
+        raise InferenceError("label_encoder_load_failed") from exc
+
+    model_classes = np.asarray(getattr(estimator, "classes_", []))
+    encoder_classes = np.asarray(getattr(label_encoder, "classes_", []))
+    if model_classes.size != encoder_classes.size:
+        raise InferenceError("model_encoder_class_count_mismatch")
 
     logger.info(
         "AI 모델 적재 완료 | model=%s | encoder=%s | device=%s",
         m_path,
-        e_path_raw if label_encoder is not None else "(none)",
+        e_path_raw,
         getattr(settings, "MODEL_DEVICE", "cpu"),
     )
     return ModelBundle(estimator=estimator, label_encoder=label_encoder)
@@ -142,6 +143,7 @@ def predict_sign(
     try:
         pred = estimator.predict(features)
         label_id = int(np.asarray(pred).reshape(-1)[0])
+        label = str(model.label_encoder.inverse_transform([label_id])[0])
 
         if hasattr(estimator, "predict_proba"):
             proba = np.asarray(estimator.predict_proba(features))
@@ -152,7 +154,7 @@ def predict_sign(
         logger.exception("모델 추론 실행 실패")
         raise InferenceError("model_predict_failed") from exc
 
-    recognized = label_id != NONE_LABEL_ID and confidence >= threshold
+    recognized = label != "none" and confidence >= threshold
 
     logger.debug(
         "추론 완료 | label_id=%s | confidence=%.4f | recognized=%s",
@@ -163,6 +165,7 @@ def predict_sign(
 
     return {
         "label_id": label_id,
+        "label": label,
         "confidence": confidence,
         "recognized": recognized,
     }

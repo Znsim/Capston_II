@@ -1,32 +1,48 @@
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from app.model.db_model import CommunicationLog, CommunicationStatus
+from app.model.db_model import Conversation, ConversationStatus
 
 
-def get_waiting_logs(db: Session, skip: int, limit: int):
+def get_waiting_conversations(db: Session, skip: int, limit: int):
     total_count = (
-        db.query(func.count(CommunicationLog.log_id))
-        .filter(CommunicationLog.status == CommunicationStatus.WAITING)
+        db.query(func.count(Conversation.conversation_id))
+        .filter(Conversation.status == ConversationStatus.WAITING)
         .scalar()
     ) or 0
 
-    logs = (
-        db.query(CommunicationLog)
-        .filter(CommunicationLog.status == CommunicationStatus.WAITING)
-        .order_by(CommunicationLog.created_at.asc())
+    conversations = (
+        db.query(Conversation)
+        .options(joinedload(Conversation.device))
+        .filter(Conversation.status == ConversationStatus.WAITING)
+        .order_by(Conversation.created_at.asc())
         .offset(skip)
         .limit(limit)
         .all()
     )
+    return total_count, conversations
 
-    return total_count, logs
 
-
-def get_log_for_reply(db: Session, log_id: int):
-    return (
-        db.query(CommunicationLog)
-        .filter(CommunicationLog.log_id == log_id)
-        .with_for_update()
-        .first()
+def complete_conversation(
+    db: Session, conversation_id: int, reply: str
+) -> tuple[Conversation | None, bool]:
+    updated = (
+        db.query(Conversation)
+        .filter(
+            Conversation.conversation_id == conversation_id,
+            Conversation.status == ConversationStatus.WAITING,
+        )
+        .update(
+            {
+                Conversation.staff_reply: reply,
+                Conversation.status: ConversationStatus.COMPLETED,
+            },
+            synchronize_session=False,
+        )
     )
+    if updated == 1:
+        db.commit()
+        return db.get(Conversation, conversation_id), True
+
+    db.rollback()
+    return db.get(Conversation, conversation_id), False

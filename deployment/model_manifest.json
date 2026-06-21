@@ -1,0 +1,9 @@
+{
+  "model_version": "fingerspelling-mlp-2026.06.19-v2",
+  "input_features": 63,
+  "class_count": 32,
+  "artifacts": {
+    "gesture_model.pkl": "75a8bf05864297676048f50963a0a5aaff036cabe4ab31c9cf56fe2a732b6067",
+    "label_encoder.pkl": "9bf71b1c50c14fb0691b81e23408517a936d404b6fd2e8825764009ea5361ab5"
+  }
+}

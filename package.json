@@ -15,13 +15,18 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^6.30.3",
-    "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4"
+    "react-scripts": "5.0.1"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:react": "react-scripts test --watchAll=false --runInBand",
+    "test:python": "venv\\Scripts\\python.exe -m unittest discover -s tests -p \"test_*.py\"",
+    "test:all": "npm run test:react && npm run test:python",
+    "lint:react": "eslint src --max-warnings=0",
+    "lint:python": "venv\\Scripts\\python.exe -m ruff check app ai/fingerspelling tests migrations scripts/deploy",
+    "lint": "npm run lint:react && npm run lint:python",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

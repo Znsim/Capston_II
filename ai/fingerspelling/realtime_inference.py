@@ -44,7 +44,7 @@ print(f"인식 가능 클래스 ({len(le.classes_)}개): {list(le.classes_)}")
 # ── 설정 ──────────────────────────────────────────────────────
 
 FONT_PATH      = "C:/Windows/Fonts/malgun.ttf"
-CONF_THRESHOLD = 0.75
+CONF_THRESHOLD = 0.80
 
 font_large = ImageFont.truetype(FONT_PATH, 44)
 font_mid   = ImageFont.truetype(FONT_PATH, 34)
@@ -65,7 +65,7 @@ hands = mp_hands.Hands(
     static_image_mode=False,
     max_num_hands=1,
     model_complexity=1,
-    min_detection_confidence=0.5,
+    min_detection_confidence=0.7,
     min_tracking_confidence=0.5,
 )
 
@@ -77,8 +77,10 @@ def put_text_kr(frame, text, pos, font, color):
     return cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
 
 def get_char_type(label):
-    if label in CONSONANTS: return "자음"
-    if label in VOWELS:     return "모음"
+    if label in CONSONANTS:
+        return "자음"
+    if label in VOWELS:
+        return "모음"
     return ""
 
 def extract_landmarks(result):
@@ -163,9 +165,12 @@ while True:
     cv2.imshow("지문자 인식", display)
 
     key = cv2.waitKey(1) & 0xFF
-    if   key == ord('q'): break
-    elif key == ord('b'): builder.backspace()
-    elif key == ord('c'): builder.clear()
+    if key == ord('q'):
+        break
+    elif key == ord('b'):
+        builder.backspace()
+    elif key == ord('c'):
+        builder.clear()
 
 cap.release()
 hands.close()

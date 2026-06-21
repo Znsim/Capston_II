@@ -8,28 +8,36 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# MySQL 연결 URL 예시: mysql+pymysql://user:password@localhost:3306/dbname
 DATABASE_URL = settings.DATABASE_URL
+_is_sqlite = DATABASE_URL.startswith("sqlite")
 
-# 엔진 설정
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,   # 연결 유효성 사전 체크
-    pool_size=10,         # 기본 커넥션 수
-    max_overflow=20,      # 초과 허용 커넥션 수
-    pool_recycle=3600,    # 1시간마다 커넥션 재연결
-)
+# SQLite는 pool_size/max_overflow 미지원
+_engine_kwargs: dict = {"pool_pre_ping": True}
+if not _is_sqlite:
+    _engine_kwargs.update({"pool_size": 10, "max_overflow": 20, "pool_recycle": 3600})
 
-# MySQL 세션 타임존을 UTC로 고정
-# 저장은 UTC 기준으로 하고, 화면/API 응답에서 KST로 변환하여 표시하는 방식
-@event.listens_for(engine, "connect")
-def set_mysql_timezone(dbapi_connection, connection_record):
-    try:
+engine = create_engine(DATABASE_URL, **_engine_kwargs)
+
+# SQLite 운영 정책: 외래키, WAL, 잠금 대기 시간을 연결마다 적용한다.
+if _is_sqlite:
+    @event.listens_for(engine, "connect")
+    def configure_sqlite(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
-        cursor.execute("SET time_zone = '+00:00'")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=5000")
         cursor.close()
-    except Exception as e:
-        logger.error(f"MySQL 세션 타임존(UTC) 설정 실패: {str(e)}")
+
+# MySQL 전용: 세션 타임존 UTC 고정
+else:
+    @event.listens_for(engine, "connect")
+    def set_mysql_timezone(dbapi_connection, connection_record):
+        try:
+            cursor = dbapi_connection.cursor()
+            cursor.execute("SET time_zone = '+00:00'")
+            cursor.close()
+        except Exception:
+            logger.exception("database_timezone_setup_failed")
 
 
 SessionLocal = sessionmaker(
@@ -53,15 +61,55 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
-def init_db():
-    """테이블 초기 생성 (순환 참조 방지를 위해 함수 내부 import)"""
+def seed_db():
+    """초기 기초 데이터 삽입 (이미 있으면 건너뜀)"""
+    from app.model.db_model import AILabelMap, DeviceInfo
+
+    # label_encoder.classes_ 순서와 동일하게 맞춘 자모 매핑
+    LABEL_MAP = [
+        (0, "none"), (1, "ㄱ"), (2, "ㄴ"), (3, "ㄷ"), (4, "ㄹ"),
+        (5, "ㅁ"), (6, "ㅂ"), (7, "ㅅ"), (8, "ㅇ"), (9, "ㅈ"),
+        (10, "ㅊ"), (11, "ㅋ"), (12, "ㅌ"), (13, "ㅍ"), (14, "ㅎ"),
+        (15, "ㅏ"), (16, "ㅐ"), (17, "ㅑ"), (18, "ㅒ"), (19, "ㅓ"),
+        (20, "ㅔ"), (21, "ㅕ"), (22, "ㅖ"), (23, "ㅗ"), (24, "ㅚ"),
+        (25, "ㅛ"), (26, "ㅜ"), (27, "ㅟ"), (28, "ㅠ"), (29, "ㅡ"),
+        (30, "ㅢ"), (31, "ㅣ"),
+    ]
+
+    db = SessionLocal()
     try:
-        import app.model.db_model  # noqa: F401
-        Base.metadata.create_all(bind=engine)
-        logger.info("데이터베이스 테이블 생성 완료")
-    except Exception as e:
-        logger.error(f"데이터베이스 테이블 생성 중 오류 발생: {str(e)}", exc_info=True)
-        raise
+        if db.query(AILabelMap).count() == 0:
+            db.bulk_save_objects([
+                AILabelMap(label_id=lid, word_name=word)
+                for lid, word in LABEL_MAP
+            ])
+            logger.info("ai_label_map 기초 데이터 삽입 완료 (%d개)", len(LABEL_MAP))
+
+        if db.query(DeviceInfo).filter_by(device_id="SEOUL_01").first() is None:
+            db.add(DeviceInfo(device_id="SEOUL_01", station_name="서울역", location="1번 창구"))
+            logger.info("device_info SEOUL_01 삽입 완료")
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("database_seed_failed")
+    finally:
+        db.close()
+
+
+def validate_ai_label_mapping(encoder_classes) -> None:
+    """서버 시작 시 label_encoder와 DB 라벨 순서가 정확히 같은지 검증한다."""
+    from app.model.db_model import AILabelMap
+
+    expected = [(index, str(label)) for index, label in enumerate(encoder_classes)]
+    db = SessionLocal()
+    try:
+        rows = db.query(AILabelMap).order_by(AILabelMap.label_id.asc()).all()
+        actual = [(row.label_id, row.word_name) for row in rows]
+        if actual != expected:
+            raise RuntimeError("ai_label_mapping_mismatch")
+    finally:
+        db.close()
 
 
 def check_db_health() -> bool:
@@ -70,8 +118,8 @@ def check_db_health() -> bool:
         with engine.connect() as connection:
             result = connection.execute(text("SELECT 1")).scalar()
             return result == 1
-    except Exception as e:
-        logger.error(f"데이터베이스 연결 상태 확인 실패: {str(e)}", exc_info=True)
+    except Exception:
+        logger.exception("database_health_check_failed")
         return False
 
 
@@ -80,5 +128,5 @@ def close_db():
     try:
         engine.dispose()
         logger.info("데이터베이스 커넥션 풀 정리 완료")
-    except Exception as e:
-        logger.error(f"데이터베이스 엔진 종료 중 오류 발생: {str(e)}", exc_info=True)
+    except Exception:
+        logger.exception("database_engine_close_failed")

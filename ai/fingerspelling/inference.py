@@ -30,7 +30,7 @@ from ai.model import MLPClassifier
 from utils import put_text_kr
 
 # ── 설정 ──────────────────────────────────────────────────────────────────
-CONF_THRESHOLD = 0.65
+CONF_THRESHOLD = 0.80
 SMOOTH_WINDOW  = 12
 PANEL_WIDTH    = 280
 # ───────────────────────────────────────────────────────────────────────────

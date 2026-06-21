@@ -95,12 +95,13 @@
 
 .buttonRow {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 22px;
 }
 
 .buttonRow button {
-  flex: 1;
+  flex: 1 1 28%;
   border: none;
   border-radius: 14px;
   padding: 14px 0;
@@ -129,4 +130,39 @@
 .answerText {
   font-size: 26px;
   font-weight: bold;
+}
+
+.buttonRow button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.statusStack {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.statusMessage {
+  padding: 12px 16px;
+  border-radius: 12px;
+  color: white;
+  font-size: 15px;
+  font-weight: bold;
+  background: rgba(0, 0, 0, 0.82);
+}
+
+.statusMessage.error {
+  border: 2px solid #ff6b6b;
+}
+
+.statusMessage.warning {
+  border: 2px solid #ffd166;
+}
+
+.deviceLabel {
+  margin-top: 12px;
+  text-align: right;
+  font-size: 13px;
+  opacity: 0.65;
 }

@@ -6,129 +6,104 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.schema.schema_ import (
+    ConversationCreateRequest,
+    ConversationCreateResponse,
+    ConversationResponse,
     ErrorResponse,
     InferenceResponse,
-    PollAnswerResponse,
     SignRequest,
 )
 from app.services.kiosk_service import (
-    get_latest_log_for_device,
-    run_inference_and_save,
+    create_conversation,
+    get_conversation,
+    run_inference,
 )
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter(tags=["Kiosk"])
 
 
 @router.post(
     "/inference",
     response_model=InferenceResponse,
-    summary="수어 입력 추론 및 로그 저장",
-    responses={
-        400: {"model": ErrorResponse, "description": "잘못된 입력값"},
-        500: {"model": ErrorResponse, "description": "서버 내부 오류"},
-        503: {"model": ErrorResponse, "description": "AI 모델 미로드"},
-    },
+    summary="수어 자모 추론",
+    responses={503: {"model": ErrorResponse, "description": "AI 모델 미로드"}},
 )
-async def inference(
-    request_data: SignRequest,
-    request: Request,
-    db: Session = Depends(get_db),
-) -> InferenceResponse:
+async def inference(request_data: SignRequest, request: Request) -> InferenceResponse:
     model = getattr(request.app.state, "model", None)
     if model is None:
-        logger.error("app.state에서 AI 모델을 찾을 수 없습니다.")
+        logger.warning("inference_rejected_model_not_loaded")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="ai_model_not_loaded",
         )
 
     try:
-        result = run_inference_and_save(
-            model=model,
-            keypoints=request_data.keypoints,
-            device_id=request_data.device_id,
-            db=db,
-        )
-
-        # none / 저신뢰도 → 200 OK, recognized_word="none", confidence=0.0
-        # (프론트의 'confidence < 0.75 무시' 정책과 자연스럽게 맞물림)
-        if result is None:
-            return InferenceResponse(
-                log_id=0,
-                recognized_word="none",
-                confidence=0.0,
-            )
-
-        new_log, confidence = result
+        result = run_inference(model, request_data.keypoints)
+        if not result["recognized"]:
+            return InferenceResponse(recognized_word="none", confidence=0.0)
         return InferenceResponse(
-            log_id=new_log.log_id,
-            recognized_word=new_log.recognized_word,
-            confidence=confidence,
+            recognized_word=result["label"],
+            confidence=result["confidence"],
         )
-
-    except HTTPException:
-        raise
-
-    except SQLAlchemyError:
-        logger.exception("추론 결과 데이터베이스 저장 중 오류 발생")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="database_save_error",
-        )
-
     except Exception:
-        logger.exception("추론 처리 중 알 수 없는 오류 발생")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="inference_process_error",
+        logger.exception("inference_failed")
+        raise HTTPException(status_code=500, detail="inference_process_error")
+
+
+@router.post(
+    "/conversations",
+    response_model=ConversationCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="완성 문장 전송",
+)
+async def submit_conversation(
+    data: ConversationCreateRequest,
+    db: Session = Depends(get_db),
+) -> ConversationCreateResponse:
+    try:
+        conversation = create_conversation(db, data.device_id, data.question_text)
+        if conversation is None:
+            raise HTTPException(status_code=404, detail="device_not_found")
+        logger.info(
+            "conversation_created | conversation_id=%s | device=%s",
+            conversation.conversation_id,
+            conversation.device_id,
         )
+        return ConversationCreateResponse(
+            conversation_id=conversation.conversation_id,
+            status=conversation.status.value,
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("conversation_create_database_failed | device=%s", data.device_id)
+        raise HTTPException(status_code=500, detail="conversation_save_error")
 
 
 @router.get(
-    "/poll/answer",
-    response_model=PollAnswerResponse,
-    summary="역무원 답변 폴링",
-    responses={
-        422: {"model": ErrorResponse, "description": "잘못된 device_id 형식"},
-        500: {"model": ErrorResponse, "description": "서버 내부 오류"},
-    },
+    "/conversations/{conversation_id}",
+    response_model=ConversationResponse,
+    summary="대화 답변 조회",
 )
-async def poll_answer(
-    device_id: str = Query(
-        ...,
-        pattern=r"^[A-Z]+_\d+$",
-        examples=["SEOUL_01"],
-        description="키오스크 기기 ID",
-    ),
+async def read_conversation(
+    conversation_id: int,
+    device_id: str = Query(..., pattern=r"^[A-Z]+_\d+$"),
     db: Session = Depends(get_db),
-) -> PollAnswerResponse:
+) -> ConversationResponse:
     try:
-        log = get_latest_log_for_device(db, device_id)
-
-        # 대화 기록이 없으면 WAITING으로 응답 (프론트 분기 단순화)
-        if log is None:
-            return PollAnswerResponse(status="WAITING", staff_reply=None)
-
-        return PollAnswerResponse(
-            status=log.status.value,
-            staff_reply=log.staff_reply,
+        conversation = get_conversation(db, conversation_id, device_id)
+        if conversation is None:
+            raise HTTPException(status_code=404, detail="conversation_not_found")
+        return ConversationResponse(
+            conversation_id=conversation.conversation_id,
+            status=conversation.status.value,
+            staff_reply=conversation.staff_reply,
         )
-
     except HTTPException:
         raise
-
     except SQLAlchemyError:
-        logger.exception("답변 폴링 DB 조회 중 오류 발생")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="database_query_error",
-        )
-
-    except Exception:
-        logger.exception("답변 폴링 중 알 수 없는 오류 발생")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="poll_answer_error",
-        )
+        logger.exception("conversation_read_database_failed | conversation_id=%s", conversation_id)
+        raise HTTPException(status_code=500, detail="conversation_query_error")

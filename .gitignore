@@ -5,9 +5,9 @@ venv/
 # 모델 파일 (팀원 간 직접 전달)
 ai/fingerspelling/models/
 ai/fingerspelling/dataset/
-ai/new_word/models/
-ai/new_word/word_data/
-ai/new_word/runs/
+research/word_bilstm/models/
+research/word_bilstm/word_data/
+research/word_bilstm/runs/
 
 # Python
 __pycache__/
@@ -32,3 +32,23 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local secrets
+.env
+.env.*
+!.env.example
+!.env.development.example
+!.env.production.example
+
+# Runtime and deployment artifacts
+app/ai/models/
+logs/
+kiosk.db
+node_modules/
+
+# Deployment runtime artifacts
+deployment/models/*
+!deployment/models/.gitkeep
+deployment/bin/
+data/
+backups/
