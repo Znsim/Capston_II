@@ -16,6 +16,7 @@ const INFERENCE_PATH = "/api/inference";
 const CONVERSATIONS_PATH = "/api/conversations";
 const POLL_INTERVAL_MS = 1000;
 const POLL_TIMEOUT_MS = 2 * 60 * 1000;
+const MEDIAPIPE_ASSET_BASE = (process.env.REACT_APP_MEDIAPIPE_ASSET_BASE || "").replace(/\/$/, "");
 
 export default function User() {
   const videoRef = useRef(null);
@@ -223,7 +224,9 @@ export default function User() {
     let stopped = false;
 
     const hands = new Hands({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/${file}`,
+      locateFile: (file) => MEDIAPIPE_ASSET_BASE
+        ? `${MEDIAPIPE_ASSET_BASE}/hands/${file}`
+        : `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/${file}`,
     });
     hands.setOptions({
       maxNumHands: 1,
@@ -234,7 +237,9 @@ export default function User() {
     });
 
     const pose = new Pose({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}`,
+      locateFile: (file) => MEDIAPIPE_ASSET_BASE
+        ? `${MEDIAPIPE_ASSET_BASE}/pose/${file}`
+        : `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}`,
     });
     pose.setOptions({
       modelComplexity: 1,

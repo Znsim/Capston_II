@@ -52,3 +52,4 @@ deployment/models/*
 deployment/bin/
 data/
 backups/
+portable/

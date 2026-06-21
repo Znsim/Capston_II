@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     SESSION_SECRET: Optional[str] = None
     SESSION_TTL_SECONDS: int = Field(default=28800, ge=300, le=86400)
     MAX_REQUEST_BODY_BYTES: int = Field(default=1048576, ge=1024, le=10485760)
+    SERVE_FRONTEND: bool = False
 
     # =========================
     # 3. 데이터베이스 설정

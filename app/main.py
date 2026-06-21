@@ -1,11 +1,15 @@
 import re
+import os
+from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse
 from fastapi.encoders import jsonable_encoder
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 
 from app.ai.inference import load_model
@@ -155,9 +159,16 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 app.include_router(api_router, prefix="/api")
 
+frontend_dir = Path(os.getenv("SIGNKIOSK_ASSET_DIR", "build")).resolve()
+frontend_enabled = settings.SERVE_FRONTEND and (frontend_dir / "index.html").is_file()
+if frontend_enabled and (frontend_dir / "static").is_dir():
+    app.mount("/static", StaticFiles(directory=frontend_dir / "static"), name="frontend-static")
+
 
 @app.get("/")
 async def root():
+    if frontend_enabled:
+        return FileResponse(frontend_dir / "index.html")
     return {
         "status": "success",
         "message": "service_running",
@@ -172,6 +183,20 @@ async def info():
         "environment": settings.ENVIRONMENT,
         "model_loaded": getattr(app.state, "model", None) is not None,
     }
+
+
+@app.get("/{frontend_path:path}", include_in_schema=False)
+async def frontend_fallback(frontend_path: str):
+    if not frontend_enabled:
+        raise HTTPException(status_code=404, detail="not_found")
+    requested = (frontend_dir / frontend_path).resolve()
+    try:
+        requested.relative_to(frontend_dir)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="not_found")
+    if requested.is_file():
+        return FileResponse(requested)
+    return FileResponse(frontend_dir / "index.html")
 
 
 if __name__ == "__main__":

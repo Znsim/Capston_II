@@ -142,3 +142,18 @@
 - 장치 선택 시 관리자 세션을 로그아웃한 뒤 선택값을 적용
 - lint, React 29개 테스트, Python 9개 테스트, 프로덕션 빌드 통과
 - 기존 개발 서버가 기능 추가 전 코드로 실행 중이므로 백엔드와 React 재시작 후 사용자 화면 확인 필요
+
+## 12. Windows 포터블 실행 파일
+
+상태: **자동 검증 완료 / 외부 PC 검증 대기**
+
+- 산출물: `portable/SignKiosk-windows-x64.zip`
+- 외부 PC에 Python·Node.js 설치 없이 `SignKiosk.exe` 실행 가능
+- React, FastAPI, SQLite, 운영 모델, MediaPipe Hands/Pose 웹 자산 포함
+- 첫 실행 시 `.env`, 무작위 관리자 비밀번호 안내 파일, `data/kiosk.db`, `logs/` 자동 생성
+- 실제 EXE 실행에서 SQLite 마이그레이션, DB 연결, 운영 모델 로드 및 전체 준비 상태 확인
+- `/`, `/admin`, `/hardware-check.html`, `/info` 응답 확인
+- MediaPipe 로컬 모델 자산 응답 확인(인터넷 연결 없이 웹 모델 로드 가능)
+- 기존 개발 서버와 충돌을 피하기 위해 자동 검증은 8010 포트에서 수행
+- 포터블 zip에는 테스트 중 생성된 `.env`, 비밀번호 파일, DB를 포함하지 않도록 별도 검사
+- Windows 코드 서명이 없으므로 외부 PC에서 SmartScreen 경고가 표시될 수 있음
