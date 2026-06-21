@@ -62,6 +62,9 @@ class ApiFlowTests(unittest.TestCase):
         cls.session.close()
         cls.engine.dispose()
 
+    def setUp(self):
+        self.client.cookies.clear()
+
     def test_complete_multi_kiosk_api_flow(self):
         status, inference, _ = self.client.post(
             "/api/inference",
@@ -137,6 +140,57 @@ class ApiFlowTests(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         first_row = self.session.get(Conversation, first["conversation_id"])
         self.assertEqual(first_row.status, ConversationStatus.COMPLETED)
+
+    def test_admin_can_create_update_and_list_devices(self):
+        anonymous_status, _, _ = self.client.get("/api/devices")
+        self.assertEqual(anonymous_status, 401)
+
+        login_status, _, _ = self.client.post(
+            "/api/auth/login", {"password": settings.ADMIN_PASSWORD}
+        )
+        self.assertEqual(login_status, 200)
+
+        create_status, created, _ = self.client.post(
+            "/api/devices",
+            {
+                "device_id": "DAEJEON_03",
+                "station_name": "대전역",
+                "location": "3번 창구",
+            },
+        )
+        self.assertEqual(create_status, 201)
+        self.assertEqual(created["device_id"], "DAEJEON_03")
+
+        duplicate_status, _, _ = self.client.post(
+            "/api/devices",
+            {
+                "device_id": "DAEJEON_03",
+                "station_name": "대전역",
+                "location": "다른 위치",
+            },
+        )
+        self.assertEqual(duplicate_status, 409)
+
+        invalid_status, _, _ = self.client.post(
+            "/api/devices",
+            {
+                "device_id": "INVALID_04",
+                "station_name": "   ",
+                "location": "4번 창구",
+            },
+        )
+        self.assertEqual(invalid_status, 422)
+
+        update_status, updated, _ = self.client.put(
+            "/api/devices/DAEJEON_03",
+            {"station_name": "대전역", "location": "안내소"},
+        )
+        self.assertEqual(update_status, 200)
+        self.assertEqual(updated["location"], "안내소")
+
+        list_status, devices, _ = self.client.get("/api/devices")
+        self.assertEqual(list_status, 200)
+        self.assertIn("DAEJEON_03", {item["device_id"] for item in devices})
 
 
 if __name__ == "__main__":

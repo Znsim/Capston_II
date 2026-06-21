@@ -72,6 +72,33 @@ DB 연결과 AI 모델 적재 상태를 확인합니다. 둘 다 준비되면 `2
 
 세션 쿠키를 제거합니다.
 
+## 장치 관리
+
+장치 관리 API는 모두 관리자 세션 쿠키가 필요하다. 장치 ID는 생성 후 변경하지 않으며,
+ID를 바꿔야 하면 새 장치를 등록한다. 기존 대화 참조 보존을 위해 삭제 API는 제공하지 않는다.
+
+### `GET /api/devices`
+
+등록된 장치를 장치 ID 순으로 반환한다.
+
+### `POST /api/devices`
+
+```json
+{"device_id":"BUSAN_02","station_name":"부산역","location":"2번 안내소"}
+```
+
+- 성공: `201`
+- 중복 장치 ID: `409 device_already_exists`
+- 장치 ID 형식: 영문 대문자 역 코드와 숫자(예: `BUSAN_02`)
+
+### `PUT /api/devices/{device_id}`
+
+```json
+{"station_name":"부산역","location":"종합 안내소"}
+```
+
+역명과 위치를 수정한다. 등록되지 않은 장치는 `404 device_not_found`를 반환한다.
+
 ## 역무원
 
 아래 API는 로그인 세션이 필요합니다.

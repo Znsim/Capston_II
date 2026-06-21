@@ -1,0 +1,127 @@
+.device-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.device-modal {
+  width: min(820px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 24px;
+  border-radius: 18px;
+  background: #fff;
+  color: #171717;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.device-modal header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.device-modal h2,
+.device-modal p {
+  margin: 0;
+}
+
+.device-close,
+.device-login button,
+.device-form-actions button {
+  border: 0;
+  border-radius: 9px;
+  padding: 11px 16px;
+  background: #111;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.device-login {
+  display: grid;
+  gap: 14px;
+}
+
+.device-login input,
+.device-form input {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid #bbb;
+  border-radius: 9px;
+  font-size: 15px;
+}
+
+.device-settings-content {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(280px, 1.2fr);
+  gap: 20px;
+}
+
+.device-list,
+.device-form {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.device-list button {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.device-list button.selected {
+  border-color: #1976d2;
+  background: #eaf4ff;
+}
+
+.device-list span {
+  color: #666;
+  font-size: 13px;
+}
+
+.device-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.device-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.device-modal button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.device-modal-error {
+  margin-top: 16px !important;
+  padding: 10px 12px;
+  border: 1px solid #e89a9a;
+  border-radius: 9px;
+  background: #fff0f0;
+  color: #a42121;
+}
+
+@media (max-width: 680px) {
+  .device-settings-content {
+    grid-template-columns: 1fr;
+  }
+}

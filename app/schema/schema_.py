@@ -123,6 +123,58 @@ class AuthStatusResponse(BaseModel):
     authenticated: bool
 
 
+class DeviceCreateRequest(BaseModel):
+    device_id: str = Field(..., examples=["SEOUL_01"])
+    station_name: str = Field(..., min_length=1, max_length=100)
+    location: Optional[str] = Field(default=None, max_length=100)
+
+    @field_validator("device_id")
+    @classmethod
+    def validate_device_id(cls, value: str) -> str:
+        return _validate_device_id(value.strip())
+
+    @field_validator("station_name")
+    @classmethod
+    def validate_station_name(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("station_name_required")
+        return cleaned
+
+    @field_validator("location")
+    @classmethod
+    def validate_location(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        return value.strip() or None
+
+
+class DeviceUpdateRequest(BaseModel):
+    station_name: str = Field(..., min_length=1, max_length=100)
+    location: Optional[str] = Field(default=None, max_length=100)
+
+    @field_validator("station_name")
+    @classmethod
+    def validate_station_name(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("station_name_required")
+        return cleaned
+
+    @field_validator("location")
+    @classmethod
+    def validate_location(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        return value.strip() or None
+
+
+class DeviceResponse(BaseModel):
+    device_id: str
+    station_name: str
+    location: Optional[str] = None
+
+
 class HealthStatus(BaseModel):
     database: str
     ai_model: str

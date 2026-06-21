@@ -86,6 +86,8 @@ class RateLimitMiddleware:
             return "conversation", 30
         if path.startswith("/api/staff/"):
             return "staff", 120
+        if path.startswith("/api/devices"):
+            return "devices", 120
         return None
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:

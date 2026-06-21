@@ -9,8 +9,9 @@ import { toFingerspellingModelKeypoints } from "./ai/fingerspellingLandmarks";
 import { handleFrontendError, reportDevelopmentError } from "./utils/errorHandling";
 import { createSequentialPoller } from "./utils/sequentialPoller";
 import { createSubmissionLock } from "./utils/submissionLock";
+import DeviceSettingsModal from "./device/DeviceSettingsModal";
+import { getConfiguredDeviceId, saveConfiguredDeviceId } from "./utils/deviceSelection";
 
-const DEVICE_ID = (process.env.REACT_APP_KIOSK_DEVICE_ID || "").trim();
 const INFERENCE_PATH = "/api/inference";
 const CONVERSATIONS_PATH = "/api/conversations";
 const POLL_INTERVAL_MS = 1000;
@@ -27,6 +28,8 @@ export default function User() {
   const handDetectedRef = useRef(false);
   const handSessionRef = useRef(0);
   const wordBuilder = useRef(new WordBuilder());
+  const [deviceId, setDeviceId] = useState(getConfiguredDeviceId);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [bottomText, setBottomText] = useState("질문을 전송하면 답변이 표시됩니다.");
   const [recognizedLabel, setRecognizedLabel] = useState("-");
@@ -41,7 +44,7 @@ export default function User() {
   const [inferenceError, setInferenceError] = useState("");
   const [cameraError, setCameraError] = useState("");
   const [speechError, setSpeechError] = useState("");
-  const deviceConfigured = Boolean(DEVICE_ID);
+  const deviceConfigured = Boolean(deviceId);
 
   const syncComposerText = useCallback(() => {
     setCompletedText(wordBuilder.current.composer.text || "-");
@@ -87,7 +90,7 @@ export default function User() {
 
     const poller = createSequentialPoller({
       request: () => axios.get(`${CONVERSATIONS_PATH}/${conversationId}`, {
-        params: { device_id: DEVICE_ID },
+        params: { device_id: deviceId },
         timeout: 5000,
       }),
       onResult: (response) => {
@@ -136,7 +139,7 @@ export default function User() {
     });
     pollerRef.current = poller;
     poller.start();
-  }, [speakAnswer, stopPolling]);
+  }, [deviceId, speakAnswer, stopPolling]);
 
   const submitMessage = useCallback(async (message) => {
     const question = message.trim();
@@ -155,7 +158,7 @@ export default function User() {
     try {
       const response = await axios.post(
         CONVERSATIONS_PATH,
-        { device_id: DEVICE_ID, question_text: question },
+        { device_id: deviceId, question_text: question },
         { headers: { "Content-Type": "application/json" }, timeout: 10000 }
       );
       const conversationId = response.data?.conversation_id;
@@ -188,7 +191,7 @@ export default function User() {
       submissionLockRef.current.release();
       setIsSending(false);
     }
-  }, [deviceConfigured, isPolling, startPolling, syncComposerText]);
+  }, [deviceConfigured, deviceId, isPolling, startPolling, syncComposerText]);
 
   const handleBackspace = () => {
     wordBuilder.current.backspace();
@@ -282,7 +285,7 @@ export default function User() {
       try {
         const response = await axios.post(
           INFERENCE_PATH,
-          { device_id: DEVICE_ID, keypoints: toFingerspellingModelKeypoints(latestHands[0]) },
+          { device_id: deviceId, keypoints: toFingerspellingModelKeypoints(latestHands[0]) },
           { headers: { "Content-Type": "application/json" }, timeout: 5000 }
         );
         if (!handDetectedRef.current || requestHandSession !== handSessionRef.current) return;
@@ -386,7 +389,17 @@ export default function User() {
       hands.close();
       pose.close();
     };
-  }, [deviceConfigured]);
+  }, [deviceConfigured, deviceId]);
+
+  const handleDeviceSelected = (nextDeviceId) => {
+    if (isPolling || isSending) return;
+    saveConfiguredDeviceId(nextDeviceId);
+    setDeviceId(nextDeviceId);
+    setSettingsOpen(false);
+    setLastSentMessage("");
+    setBottomText("선택한 장치로 질문을 전송할 수 있습니다.");
+    handleClear();
+  };
 
   useEffect(() => () => {
     stopPolling();
@@ -442,7 +455,15 @@ export default function User() {
               disabled={sendDisabled || !lastSentMessage}
             >재전송</button>
           </div>
-          <div className="deviceLabel">장치: {DEVICE_ID || "미설정"}</div>
+          <div className="deviceLabel">
+            <span>장치: {deviceId || "미설정"}</span>
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              disabled={isPolling || isSending}
+              title={isPolling ? "답변 대기 중에는 장치를 변경할 수 없습니다." : "장치 설정"}
+            >설정</button>
+          </div>
         </div>
 
         <div className="answerBox">
@@ -450,6 +471,13 @@ export default function User() {
           <div className="answerText" aria-live="polite">{bottomText}</div>
         </div>
       </div>
+      {settingsOpen && (
+        <DeviceSettingsModal
+          currentDeviceId={deviceId}
+          onSelect={handleDeviceSelected}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
     </div>
   );
 }
